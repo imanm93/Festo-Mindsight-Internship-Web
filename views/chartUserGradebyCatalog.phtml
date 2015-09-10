@@ -1,0 +1,280 @@
+<?php
+$rootUrl = Zend_Registry::get('rootUrl');
+$cssUrl = Zend_Registry::get('cssUrl');
+$imageUrl = Zend_Registry::get('imageUrl');
+$this->headLink()->appendStylesheet($cssUrl . '/jqModal.css')
+				 ->appendStylesheet($cssUrl . '/report.css')
+				 ->appendStylesheet($cssUrl . '/grid.css');
+				 
+$this->headScript()->appendFile($rootUrl . '/js/jqgrid/jquery.jqGrid.src.js');
+
+$this->headScript()->appendFile($rootUrl . '/js/jqModal.js')
+				   ->appendFile($rootUrl . '/js/jqDnR.js')
+				   ->appendFile($rootUrl . '/js/jquery-form.js')
+				   ->appendFile($rootUrl . '/js/lv-form.js')
+				   ->appendFile($rootUrl . '/js/ChartNew.js');
+
+$this->setHelperPath(Zend_Registry::get('rootPath').'/application/layouts/helpers','Layout_View_Helper_');
+$this->inlineScript()->captureStart()
+
+?>
+
+var initdata = <?php echo json_encode($this->data, JSON_FORCE_OBJECT) ?>;
+var last_catalog = <?php echo json_encode($this->last_catalog, JSON_FORCE_OBJECT) ?>;
+var g_id = <?php echo json_encode($this->g_id, JSON_FORCE_OBJECT) ?>;
+var passing_grade = <?php echo json_encode($this->passing_grade, JSON_FORCE_OBJECT) ?>;
+var catpointer = 0;
+
+function graphLoad(data)
+{
+	
+	var UserLabel = [];
+	var UserGrade = [];
+	var FillColor = [];
+	var StrokeColor = [];
+	var PointColor = [];
+	var PointStrokeColor = [];
+	var maxlabelheight = 0;
+
+	for (item in data) 
+	{
+		if (data[item]['name'].length > 25) // String size too LARGE
+		{
+			var temp = data[item]['name'];
+			var words = temp.split(" ");
+			var ulabel = [];
+			var chars = 0;
+			var strtemp = "";
+
+			for (word in words)
+			{
+				if(chars + words[word].length > 25)
+				{
+					ulabel.push(strtemp +"\n");
+					strtemp = "";
+					chars = 0;
+				}
+				
+				strtemp = strtemp + " " + words[word];
+				chars += words[word].length;
+			}
+			
+			if(strtemp.length > 0)
+				ulabel.push(strtemp);
+			
+			if(ulabel.length > maxlabelheight)
+				maxlabelheight = ulabel.length;
+			
+			UserLabel.push(ulabel.join(""));
+		} 
+		else // String is OK
+		{
+			UserLabel.push(data[item]['name']);
+			if(maxlabelheight == 0)
+				maxlabelheight = 1;
+		}
+
+		if (!data[item]['grade'] || data[item]['grade'] == '-')
+		{
+			UserGrade.push(0);
+		} 
+		else 
+		{
+			UserGrade.push(data[item]['grade']);
+		}
+		
+		if (data[item]['grade'] < passing_grade['value'] && data[item]['grade'] > 0)
+		{
+			FillColor.push("rgba(255,0,0,0.4)");
+			StrokeColor.push("rgba(255,0,0,0.8)");
+           	PointColor.push("rgba(255,0,0,0.75)");
+           	PointStrokeColor.push("rgba(255,0,0,1)");			
+		} 
+		else if (item % 2 == 0)
+		{
+			FillColor.push("rgba(220,220,220,0.5)");
+			StrokeColor.push("rgba(220,220,220,0.8)");
+           	PointColor.push("rgba(220,220,220,0.75)");
+           	PointStrokeColor.push("rgba(220,220,220,1)");					
+		} 
+		else
+		{
+			FillColor.push("rgba(151,187,205,0.5)");
+			StrokeColor.push("rgba(151,187,205,1)");
+           	PointColor.push("rgba(151,187,205,0.75)");
+           	PointStrokeColor.push("rgba(151,187,205,1)");							
+		}
+	}
+
+	var step = 10;
+	var max = 100;
+	var start = 0;
+
+	var data = {
+		labels: UserLabel,
+		datasets: [
+			{
+				title: "Mind-Sight Report",
+				fillColor: FillColor,
+				strokeColor: StrokeColor,
+            	pointColor: PointColor,
+            	pointStrokeColor: PointStrokeColor,
+				data: UserGrade
+			}
+		]
+	};
+
+	var options = {
+		scaleOverride: true,
+		scaleSteps: Math.ceil((max - start)/step),
+		scaleStepWidth: step,
+		scaleStartValue: start,
+		inGraphDataTmpl: "<%=v3%>",
+		inGraphDataAlign: "right",
+		inGraphDataPaddingX : 28,
+		inGraphDataXPosition : 3,
+		inGraphDataShow : true,
+		annotateLabel: "<%=(v2 +': ' ) + v3 + '%'%>",
+		annotateDisplay: true
+	}
+	
+	var ctx = document.getElementById("myChart").getContext("2d");
+	ctx.canvas.width = 650;
+
+	if (UserLabel.length < 20)
+		ctx.canvas.height = 6 * 8 * maxlabelheight * UserLabel.length;
+	else
+		ctx.canvas.height = 3 * 8 * maxlabelheight * UserLabel.length;
+	
+	var barChart = new Chart(ctx).HorizontalBar(data, options);
+
+	console.log(maxlabelheight);
+
+}
+
+function reload(catpointer)
+{
+	$('#left').hide();
+	$('#right').hide();
+	$('#graph_section').slideUp();
+	$('#loading').show();
+	$.ajax(
+	{
+		url: '<?= $rootUrl ?>/reports/chart/updatecatalog/gid/'+ g_id,
+		type: 'post',
+		dataType: 'json',
+		data: { 'catpointer' : catpointer },
+		success: function(response, status) 
+		{
+			document.getElementById("page_title").innerHTML = "Chart : User Grades for " + response[0]['cat_title'];
+			graphLoad(response);
+			$('#loading').hide();
+			$('#graph_section').slideDown(400, function() 
+			{
+				if (!(catpointer == 0))
+				{
+					$('#left').show();
+				}
+				
+				if (!(catpointer == last_catalog - 1))
+				{
+					$('#right').show();
+				}
+
+				var height = $('#graph_section').height();
+				console.log(height);
+				if (height < 900)
+				{
+					$('#left_td').css("padding-top", height/2 + "px");
+					$('#right_td').css("padding-top", height/2 + "px");
+				}
+				else 
+				{
+					$('#left_td').css("padding-top", 800/2 + "px");
+					$('#right_td').css("padding-top", 800/2 + "px");	
+				}
+
+			});
+		}
+	});
+}
+
+$(document).ajaxStart(function()
+{
+	$('chart_body').css({'cursor': 'wait'})
+}).ajaxStop(function()
+{
+	$('chart_body').css({'cursor': 'default'})
+});
+
+$(document).ready(function()
+{
+	document.getElementById("page_title").innerHTML = "Chart : User Grades for " + initdata[0]['cat_title'];
+	graphLoad(initdata);
+	$('#left').hide();
+	$('#loading').hide();
+	
+	$('#right').click(function()
+	{
+		$('#left').show();
+		if (catpointer < last_catalog - 1) 
+		{
+			catpointer++;
+			reload(catpointer);
+		}  
+	});
+	$('#left').click(function()
+	{
+		$('#right').show();
+		if (catpointer > 0) 
+		{
+			catpointer--;
+			reload(catpointer);
+		}
+	});
+
+	$(window).scroll(function() {
+		if ($(this).scrollTop() > 12){  
+			$('#page_title').addClass("sticky_pt");
+	  	}
+	  	else
+	  	{
+			$('#page_title').removeClass("sticky_pt");
+	  	}
+	});
+
+	var height = $('#graph_section').height();
+	//console.log(height);
+	if (height < 900)
+	{
+		$('#left_td').css("padding-top", height/2 + "px");
+		$('#right_td').css("padding-top", height/2 + "px");
+	}
+	else 
+	{
+		$('#left_td').css("padding-top", 900/2 + "px");
+		$('#right_td').css("padding-top", 900/2 + "px");	
+	}
+
+});
+
+<?php $this->inlineScript()->captureEnd() ?>
+<div id="page_title"><?= $this->translate("Chart : User Grades per Catalog")?></div>
+<div id='chart_body'>
+	<div id='loading'> Loading please hold ... </div>
+	<table>
+		<tr>
+			<td id = "left_td" width='10%' height='50%' style='vertical-align: bottom; padding-left: 30px; position:fixed'>
+				<button id="left"> < Previous </button>	
+			</td>
+			<td width='70%'>
+				<div id="graph_section">
+					<canvas id="myChart"></canvas>
+				</div>
+			</td>
+			<td id = "right_td" width='10%' height='50%' style='vertical-align: bottom; padding-left:50px; position:fixed'>
+				<button id="right" > Next > </button>
+			</td>
+		</tr>
+	</table>
+</div>

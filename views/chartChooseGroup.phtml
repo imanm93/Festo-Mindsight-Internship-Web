@@ -1,0 +1,158 @@
+<?php
+$rootUrl = Zend_Registry::get('rootUrl');
+$cssUrl = Zend_Registry::get('cssUrl');
+$imageUrl = Zend_Registry::get('imageUrl');
+$this->headLink()->appendStylesheet($cssUrl . '/jqModal.css')
+				 ->appendStylesheet($cssUrl . '/report.css')
+				 ->appendStylesheet($cssUrl . '/grid.css');
+				 
+$this->headScript()->appendFile($rootUrl . '/js/jqgrid/jquery.jqGrid.src.js');
+
+$this->headScript()->appendFile($rootUrl . '/js/jqModal.js')
+				   ->appendFile($rootUrl . '/js/jqDnR.js')
+				   ->appendFile($rootUrl . '/js/jquery-form.js')
+				   ->appendFile($rootUrl . '/js/lv-form.js')
+				   ->appendFile($rootUrl . '/js/ChartNew.js');
+
+$this->setHelperPath(Zend_Registry::get('rootPath').'/application/layouts/helpers','Layout_View_Helper_');
+$this->inlineScript()->captureStart()
+
+?>
+
+$(document).ready(function()
+{
+
+    var group_chooser = "";
+	var group_id = null;
+
+    $('#chart_cg_u').click(function()
+	{
+        group_chooser = document.getElementById('group_chooser');
+        group_id = group_chooser.options[group_chooser.selectedIndex].value;
+        if (group_id != null && group_id != '')
+           window.location = '/reports/chart/gencoursegradebyuser/gid/' + group_id;
+        else
+            alert('Please choose a group!');
+	});
+
+	$('#chart_ug_c').click(function()
+	{
+		group_chooser = document.getElementById('group_chooser');
+		group_id = group_chooser.options[group_chooser.selectedIndex].value;
+        if (group_id != null && group_id != '')
+    		window.location = '/reports/chart/genusergradebycourse/gid/' + group_id;
+        else
+            alert('Please choose a group!');
+	});
+	$('#chart_catg_u').click(function()
+	{
+		group_chooser = document.getElementById('group_chooser');
+		group_id = group_chooser.options[group_chooser.selectedIndex].value;
+        if (group_id != null && group_id != '')
+    		window.location = '/reports/chart/gencatgradebyuser/gid/' + group_id;
+        else
+            alert('Please choose a group!');
+	});
+	$('#chart_ug_cat').click(function()
+	{
+		var group_chooser = document.getElementById('group_chooser');
+		var group_id = group_chooser.options[group_chooser.selectedIndex].value;
+        if (group_id != null && group_id != '')
+    		window.location = '/reports/chart/genusergradebycat/gid/' + group_id;
+        else
+            alert('Please choose a group!');
+	});
+	$('#chart_cdetail').click(function()
+	{
+		var group_chooser = document.getElementById('group_chooser');
+		var group_id = group_chooser.options[group_chooser.selectedIndex].value;
+        if (group_id != null && group_id != '')
+    		window.location = '/reports/chart/gencoursedetail/gid/' + group_id;
+        else
+            alert('Please choose a group!');
+	});
+	$('#chart_catdetail').click(function()
+	{
+		var group_chooser = document.getElementById('group_chooser');
+		var group_id = group_chooser.options[group_chooser.selectedIndex].value;
+        if (group_id != null && group_id != '')
+    		window.location = '/reports/chart/gencatdetail/gid/' + group_id;
+        else
+            alert('Please choose a group!');
+	});
+	$('#chart_cg_progress').click(function()
+	{
+		var group_chooser = document.getElementById('group_chooser');
+		var group_id = group_chooser.options[group_chooser.selectedIndex].value;
+        if (group_id != null && group_id != '')
+    		window.location = '/reports/chart/gencoursegradebyuserprogress/gid/' + group_id;
+        else
+            alert('Please choose a group!');
+	});
+
+});
+
+<?php $this->inlineScript()->captureEnd() ?>
+<div id='page_title'><?= $this->translate("Chart : Choose Group")?></div>
+<div style='margin: 20px 20px'>
+	<label> Choose Group </label>
+	<select id="group_chooser" title='<?= $this->translate("Choose Group")?>' size="1">
+    <?php foreach($this->groups as $group){
+    	echo "<option selected disabeled hidden value=''></option>";
+    	echo "<option value='{$group->id}' ";
+    	if ($group->id === $this->groups) echo "selected='selected'";
+    	$gname = ucwords($group->name);
+    	echo ">{$this->translate($gname)}</option>";
+    } ?>
+    </select>
+    <br></br>
+    <div id='chart_buttons' style='margin: 0 auto; width: 40%'>
+	<table align='center'>
+    	<tr height='10px'>
+    		<td style='width:180px'></td>
+    		<td style='width:180'></td>
+    	</tr>
+    	<tr>
+    		<td style='width:180px'>
+    			<button id='chart_cg_u' style='width:180px; height:45px'> Course Grade by User </button>
+    		</td>
+    		<td style='width:180px'>
+    			<button id='chart_ug_c' style='width:180px; height:45px'> User Grade by Course </button>
+    		</td>
+    	</tr>
+    	<tr height='10px'>
+    		<td style='width:180px'></td>
+    		<td style='width:180px'></td>
+    	</tr>
+    	<tr>
+    	    <td style='width:180px'>
+    			<button id='chart_catg_u' style='width:180px; height:45px'> Catalog Grade by User </button>
+    		</td>
+    		<td style='width:180px'>
+    			<button id='chart_ug_cat' style='width:180px; height:45px'> User Grade by Catalog </button>
+    		</td> 
+    	</tr>
+    	<tr height='10px'>
+    		<td style='width:180px'></td>
+    		<td style='width:180px'></td>
+    	</tr>
+    	<tr>
+    		<td style='width:180px'>
+    			<button id='chart_cdetail' style='width:180px; height:45px'> Detailed Course Grade by User </button>
+    		</td>
+    		<td style='width:180px'>
+    			<button id='chart_catdetail' style='width:180px; height:45px'> Detailed Catalog Grade by User </button>
+    		</td>
+    	</tr>
+    	<tr height='10px'>
+    		<td></td>
+    		<td></td>    	
+    	</tr>
+    	<tr>
+    		<td>
+    			<button id='chart_cg_progress' style='width:180px; height:45px'> Course Grade by User with Progress </button>
+    		</td>
+    	</tr>
+	</table>
+	</div>
+</div>

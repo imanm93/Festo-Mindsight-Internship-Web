@@ -1,0 +1,249 @@
+<?php
+$rootUrl = Zend_Registry::get('rootUrl');
+$cssUrl = Zend_Registry::get('cssUrl');
+$imageUrl = Zend_Registry::get('imageUrl');
+$this->headLink()->appendStylesheet($cssUrl . '/jqModal.css')
+				 ->appendStylesheet($cssUrl . '/report.css')
+				 ->appendStylesheet($cssUrl . '/grid.css');
+				 
+$this->headScript()->appendFile($rootUrl . '/js/jqgrid/jquery.jqGrid.src.js');
+
+$this->headScript()->appendFile($rootUrl . '/js/jqModal.js')
+				   ->appendFile($rootUrl . '/js/jqDnR.js')
+				   ->appendFile($rootUrl . '/js/jquery-form.js')
+				   ->appendFile($rootUrl . '/js/lv-form.js')
+				   ->appendFile($rootUrl . '/js/ChartNew.js');
+
+$this->setHelperPath(Zend_Registry::get('rootPath').'/application/layouts/helpers','Layout_View_Helper_');
+$this->inlineScript()->captureStart()
+
+?>
+
+var initdata = <?php echo json_encode($this->data, JSON_FORCE_OBJECT) ?>;
+var last_catalog = <?php echo json_encode($this->last_catalog, JSON_FORCE_OBJECT) ?>;
+var last_user = <?php echo json_encode($this->last_user, JSON_FORCE_OBJECT) ?>;
+var g_id = <?php echo json_encode($this->g_id, JSON_FORCE_OBJECT) ?>;
+var passing_grade = <?php echo json_encode($this->passing_grade, JSON_FORCE_OBJECT) ?>;
+var upointer = 0;
+var catpointer = 0;
+
+function graphLoad(data)
+{
+	var CatalogLabel = [];
+	var Dataset = [];
+	var grade = 0;
+
+	CatalogLabel.push(data[0]['parent']);
+	document.getElementById("cat_title").innerHTML = data[0]['parent'].toString();
+	
+	for (item in data)
+	{
+		if (data[item]['grade'] == "-")
+		{
+			grade = 0;
+		}
+		else
+		{
+			grade = data[item]['grade'];
+		}
+		if (data[item]['grade'] < passing_grade['value'] && data[item]['grade'] > 0)
+		{
+			Dataset.push({title: data[item]['child'], fillColor: "rgba(255,0,0,0.4)", strokeColor: "rgba(255,0,0,0.8)", pointColor: "rgba(255,0,0,0.75)", pointStrokeColor: "rgba(255,0,0,1)", data: [grade]});
+		}
+		else if ((item % 2) == 0)
+		{
+			Dataset.push({title: data[item]['child'], fillColor: "rgba(220,220,220,0.5)", strokeColor: "rgba(220,220,220,0.8)", pointColor: "rgba(220,220,220,0.75)", pointStrokeColor: "rgba(220,220,220,1)", data: [grade]});
+		}
+		else
+		{
+			Dataset.push({title: data[item]['child'], fillColor: "rgba(151,187,205,0.5)", strokeColor: "rgba(151,187,205,1)", pointColor: "rgba(151,187,205,0.75)", pointStrokeColor: "rgba(151,187,205,1)", data: [grade] });
+		}
+	}
+
+	var step = 10;
+	var max = 100;
+	var start = 0;
+
+	var data = {
+		labels: CatalogLabel,
+		datasets: Dataset
+	};
+
+	var options = {
+		scaleOverride: true,
+		scaleSteps: Math.ceil((max - start)/step),
+		scaleStepWidth: step,
+		scaleStartValue: start,
+		inGraphDataTmpl: "<%=v1%>",
+		inGraphDataAlign: "right",
+		inGraphDataPaddingX : -10,
+		inGraphDataXPosition : 1,
+		inGraphDataShow : true,
+		annotateLabel: "<%=(v1 +': ' ) + v3 + '%'%>",
+		annotateDisplay: true,
+		showXLabels: 0,
+		xScaleLabelsMinimumWidth: 200
+	}
+
+	var ctx = document.getElementById("myChart").getContext("2d");
+	ctx.canvas.width = 600;
+
+	if (CatalogLabel.length < 20)
+		ctx.canvas.height = 10 * 8 * Dataset.length;
+	else
+		ctx.canvas.height = 5 * 8 * Dataset.length;
+	
+	var barChart = new Chart(ctx).HorizontalBar(data, options);
+
+}
+
+function reload(upointer, catpointer)
+{
+	$('#left').hide();
+	$('#right').hide();
+	$('#cat_title').hide();
+	$('#graph_section').slideUp();
+	$('#loading').show();
+	$.ajax({
+			url: '<?= $rootUrl ?>/reports/chart/updatecatalogdetail/gid/'+ g_id,
+			type: 'post',
+			dataType: 'json',
+			data: { 'catpointer' : catpointer, 'upointer' : upointer},
+			success: function(response, status) {
+					document.getElementById("page_title").innerHTML = "Chart : Detail Catalog Grades for " + response[0]['u_name'] + "(" + response[0]['username'] + ")";
+					graphLoad(response);
+					$('#loading').hide();
+					$('#cat_title').show();
+					$('#graph_section').slideDown(400, function()
+					{
+						if (!(upointer == 0 && catpointer == 0))
+						{
+							$('#left').show();
+						}
+						
+						if (!(upointer == last_user - 1 && catpointer == last_catalog -1))
+						{
+							$('#right').show();
+						}
+						var height = $('#graph_section').height();
+						console.log(height);
+						if (height < 900)
+						{
+							$('#left_td').css("padding-top", height/2 + "px");
+							$('#right_td').css("padding-top", height/2 + "px");
+						}
+						else 
+						{
+							$('#left_td').css("padding-top", 800/2 + "px");
+							$('#right_td').css("padding-top", 800/2 + "px");	
+						}
+					});
+			}
+	});	
+}
+
+$(document).ajaxStart(function()
+{
+	$('chart_body').css({'cursor': 'wait'})
+}).ajaxStop(function()
+{
+	$('chart_body').css({'cursor': 'default'})
+});
+
+$(document).ready(function() 
+{
+	document.getElementById("page_title").innerHTML = "Chart : Detail Catalog Grades for " + initdata[0]['u_name'] + "(" + initdata[0]['username'] + ")";
+	graphLoad(initdata);
+	$('#left').hide();
+	$('#loading').hide();
+
+	$('#right').click(function()
+	{
+		$('#left').show();
+		if (catpointer < last_catalog - 1)
+		{
+			// Go to next catalog
+			catpointer++;
+			reload(upointer, catpointer);
+		} 
+		else
+		{
+			if (upointer < last_user - 1)
+			{
+				// Go to next user and reset catalog pointer
+				upointer++;
+				catpointer = 0;
+				reload(upointer, catpointer);
+			}
+		}
+	});
+	$('#left').click(function()
+	{
+		$('#right').show();
+		// Go to previous catalog
+		if (catpointer > 0)
+		{
+			//Go to previous catalog
+			catpointer--;
+			reload(upointer, catpointer);
+		}
+		else
+		{
+			if (upointer > 0)
+			{
+				//Go to previous user
+				upointer--;
+				catpointer = last_catalog-1;
+				reload(upointer, catpointer);
+			}
+		}
+	});
+
+	$(window).scroll(function() {
+		if ($(this).scrollTop() > 12){  
+			$('#page_title').addClass("sticky_pt");
+	  	}
+	  	else
+	  	{
+			$('#page_title').removeClass("sticky_pt");
+	  	}
+	});
+
+	var height = $('#graph_section').height();
+	//console.log(height);
+	if (height < 900)
+	{
+		$('#left_td').css("padding-top", height/2 + "px");
+		$('#right_td').css("padding-top", height/2 + "px");
+	}
+	else 
+	{
+		$('#left_td').css("padding-top", 900/2 + "px");
+		$('#right_td').css("padding-top", 900/2 + "px");	
+	}
+});
+
+<?php $this->inlineScript()->captureEnd() ?>
+<div id='page_title'><?= $this->translate("Chart : Deatil Catalog Grades per User")?></div>
+<div id='chart_body'>
+	<div id='loading'> Loading please hold ... </div>
+	<table style='padding: 20px'>
+		<tr id='cat_title' width='100%' style='font-size: 18px; font-weight: bold'>
+		</tr>
+	</table>
+	<table>
+		<tr>
+			<td id = "left_td" width='10%' height='50%' style='vertical-align: bottom; padding-left: 30px; position:fixed'>
+				<button id="left"> < Previous </button>	
+			</td>
+			<td width='70%'>
+				<div id="graph_section">
+					<canvas id="myChart"></canvas>
+				</div>
+			</td>
+			<td id = "right_td" width='10%' height='50%' style='vertical-align: bottom; padding-left:50px; position:fixed'>
+				<button id="right" > Next > </button>
+			</td>
+		</tr>
+	</table>
+</div>
